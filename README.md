@@ -48,7 +48,7 @@
 * Installation
 ```
 pip install -r requirements.txt
-git clone ******
+git clone https://github.com/intelligent-control-lab/Kinect_Smoothing.git
 ```
 * Running
 
