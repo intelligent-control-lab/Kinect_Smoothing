@@ -6,7 +6,8 @@ class Coordinate_Calculator(object):
 	Convert the pixel level coordinate of Kinect to the real world coordinate.
 	"""
 	def __init__(self,image_width=512,image_height=424,fov_x=70.6,fov_y=60,
-	             neighbor_size=3,foreground_max_depth=1200,max_neighbor_size=10):
+	             neighbor_size=3,foreground_max_depth=1200,max_neighbor_size=10,
+	             image_pose_delay=0):
 		"""
 		:param image_width: int, width of depth image
 		:param image_height: int, height of depth image
@@ -18,6 +19,7 @@ class Coordinate_Calculator(object):
 				Then consider the valid depth in neighboring area,
 				valid depth =  min(depth[x-neighbor_size:x+neighbor_size,y-neighbor_size:y+neighbor_size])
 		:param max_neighbor_size: int, maximum radius of neighboring area
+		:param image_pose_delay: int, the delay between image and pose frames
 		"""
 		self.width = image_width
 		self.height = image_height
@@ -28,6 +30,7 @@ class Coordinate_Calculator(object):
 		self.neighbor_size = neighbor_size
 		self.foreground_max_depth = foreground_max_depth
 		self.max_neighbor_size = max_neighbor_size
+		self.image_pose_delay = image_pose_delay
 
 	def cal_real_coordinate(self,x,y,z):
 		"""
@@ -49,7 +52,14 @@ class Coordinate_Calculator(object):
 		:return: numpy array, calculated positions. have a shape of (time_step,joint_num,3)
 				for each coordinate (x,y,z), x and y means the pixel level coordinate, and z is real depth
 		"""
+		delay = self.image_pose_delay
 		raw_pose = []
+		if delay>0:
+			image_frames = image_frames[:-delay]
+			position_frames = position_frames[delay:]
+		elif delay<0:
+			image_frames = image_frames[-delay:]
+			position_frames = position_frames[:delay]
 		for img, poses in zip(image_frames, position_frames):
 			raw_temp = []
 			for x, y in poses:

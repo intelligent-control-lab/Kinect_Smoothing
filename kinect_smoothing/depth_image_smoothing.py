@@ -54,8 +54,8 @@ class HoleFilling_Filter(object):
 			inpaint_fn=None
 		self.inpaint_fn=inpaint_fn
 
-		if flag not in self.all_filling_flags:
-			raise('invalid filling flags. Only support:', self.all_filling_flags)
+		if flag not in self.all_flags:
+			raise('invalid  flags. Only support:', self.all_flags)
 
 	def _get_neighbors(self,img, x, y, radius, img_h, img_w):
 		"""
@@ -171,7 +171,7 @@ class HoleFilling_Filter(object):
 		return smoothed_frames
 
 	@property
-	def all_filling_flags(self):
+	def all_flags(self):
 		flags=[
 			'min',
 			'max',
@@ -233,8 +233,8 @@ class Denoising_Filter(object):
 			self.filter = partial(self.anisotropic_filter,niter=niter,kappa=kappa,
 			                      gamma=gamma,sigma=sigma)
 
-		if flag not in self.all_filling_flags:
-			raise('invalid filling flags. Only support:', self.all_filling_flags)
+		if flag not in self.all_flags:
+			raise('invalid  flags. Only support:', self.all_flags)
 
 
 	def _axial_noise(self, z, theta):
@@ -459,7 +459,7 @@ class Denoising_Filter(object):
 		return smoothed_frames
 
 	@property
-	def all_filling_flags(self):
+	def all_flags(self):
 		flags = [
 			'modeling',
 			'modeling_pf',

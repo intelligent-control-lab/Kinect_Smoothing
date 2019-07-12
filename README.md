@@ -1,6 +1,16 @@
 # Kinect Depth Image Smoothing
 - "Kinect Smoothing" helps you to smooth and filter the Kinect depth image and trajectory data.
 
+## How to Use it 
+* Installation
+```
+pip install -r requirements.txt
+git clone https://github.com/intelligent-control-lab/Kinect_Smoothing.git
+```
+* Running
+
+  see [example.ipynb](example.ipynb) 
+
 ## Features
 
 1 . Depth Image Smoothing
@@ -28,11 +38,15 @@
   The x, y coordinates of the trajectory were captured by some object detection algorithms (e.g. Openpose). Sometimes the object will be positioned on the background,  and the depth coordinates might register as invalid values on the Kinect. The Crop-Filter crops the invalid value and run some interpolation methods to replace it. The methods for invalid value replacement are as follows:
   * convenient interpolation methods: such as "zero","linear","slinear","quadratic","cubic","previous","next","nearest".
   * pchip: PCHIP 1-d monotonic cubic interpolation, refer [Monotone Piecewise Cubic Interpolation](https://epubs.siam.org/doi/pdf/10.1137/0717021?casa_token=IcEKTOT2mfgAAAAA:Ymwhtl0E5xdPakjEyhIuTAS5R5MQKUu3JrdLeo1Lu0qU8IMtDoX99RGwU2Ll4saxj68nVpLaVLQ)
-  * akima: Akima 1D Interpolator, refer to [A new method of interpolation and smooth curve fitting based](http://200.17.213.49/lib/exe/fetch.php/wiki:internas:biblioteca:akima.pdf)
+  * akima: Akima 1D Interpolator, refer to [A new method of interpolation and smooth curve fitting based on local procedures](http://200.17.213.49/lib/exe/fetch.php/wiki:internas:biblioteca:akima.pdf)
 
-* Kalman Filter:
+* Smooth Filter:
 
-  Smooth the data with a Kalman filter, which is effectively reducing the anomaly in the trajectory series. Refer to [Fundamentals of Kalman Filtering](http://iaac.technion.ac.il/workshops/2010/KFhandouts/LectKF1.pdf)
+  Smooth the data with a specific filter, which is effectively reducing the anomaly in the trajectory series. 
+  The methods for smoothing filter are as follows:
+   * kalman: smooth the signal with Kalman filter, refer to [Fundamentals of Kalman Filtering](http://iaac.technion.ac.il/workshops/2010/KFhandouts/LectKF1.pdf)
+   * wiener: smooth the signal with Wiener filter
+   * median:  smooth the signal with median filter
 
 * Motion Sampler:
 
@@ -42,14 +56,4 @@
 * Coordinate Calculator
 
   Transform the pixel level coordinate of Kinect to the real world coordinate. 
-  ​		
-
-## How to Use it 
-* Installation
-```
-pip install -r requirements.txt
-git clone ******
-```
-* Running
-
-  see [example.ipynb](example.ipynb) 
+  		

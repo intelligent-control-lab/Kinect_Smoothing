@@ -1,6 +1,6 @@
 
 from .depth_image_smoothing import HoleFilling_Filter, Denoising_Filter
-from .trajectory_smoothing import Crop_Filter, Kalman_Filter, Motion_Sampler
+from .trajectory_smoothing import Crop_Filter, Smooth_Filter, Motion_Sampler
 from .coordinate_calculation import Coordinate_Calculator
 
 class Kinect_Openpose_Pipeline(object):
@@ -8,13 +8,13 @@ class Kinect_Openpose_Pipeline(object):
 	simple Kinect-Openpose preprocessing pipeline for trajectory prediction
 	"""
 	def __init__(self,image_holefilling=None, image_denoising=None,
-	             tranjectory_crop=None, tranjectory_kalman=None,
+	             tranjectory_crop=None, tranjectory_smooth=None,
 	             motion_sampler=None,coordinate_calculator=None):
 		"""
 		:param image_holefilling: class of HoleFilling_Filter
 		:param image_denoising: class of Denoising_Filter
 		:param tranjectory_crop: class of Crop_Filter
-		:param tranjectory_kalman: class of Kalman_Filter
+		:param tranjectory_kalman: class of Smooth_Filter
 		:param motion_sampler: class of Motion_Sampler
 		:param coordinate_calculator: class of Coordinate_Calculator
 		"""
@@ -22,7 +22,7 @@ class Kinect_Openpose_Pipeline(object):
 		self.tranjectory_crop = tranjectory_crop if tranjectory_crop is not None else Crop_Filter()
 		self.coordinate_calculator = coordinate_calculator if coordinate_calculator is not None else Coordinate_Calculator()
 		self.image_denoising = image_denoising
-		self.tranjectory_kalman = tranjectory_kalman
+		self.tranjectory_smooth = tranjectory_smooth
 		self.motion_sampler = motion_sampler
 
 	def __call__(self, image_frame, openpose_frame):
@@ -44,8 +44,8 @@ class Kinect_Openpose_Pipeline(object):
 		if self.tranjectory_crop is not None:
 			coordinate = self.tranjectory_crop.smooth_multi_trajectories(coordinate)
 
-		if self.tranjectory_kalman is not None:
-			coordinate = self.tranjectory_kalman.smooth_multi_trajectories(coordinate)
+		if self.tranjectory_smooth is not None:
+			coordinate = self.tranjectory_smooth.smooth_multi_trajectories(coordinate)
 
 		coordinate = self.coordinate_calculator.convert_real_coordinate(coordinate)
 

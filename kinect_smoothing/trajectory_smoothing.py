@@ -1,6 +1,6 @@
 import numpy as np
 from functools import partial
-from scipy import interpolate
+from scipy import interpolate, signal
 import pykalman
 
 class Crop_Filter(object):
@@ -29,8 +29,8 @@ class Crop_Filter(object):
 		elif flag=='akima' or flag=='Akima1DInterpolator':
 			self.filter = interpolate.Akima1DInterpolator
 
-		if flag not in self.all_filling_flags:
-			raise('invalid filling flags. Only support:', self.all_filling_flags)
+		if flag not in self.all_flags:
+			raise('invalid  flags. Only support:', self.all_flags)
 
 	def smooth_trajectory_1d(self,trajectory_1d):
 		"""
@@ -88,7 +88,7 @@ class Crop_Filter(object):
 		return multi_joint_smoothed
 
 	@property
-	def all_filling_flags(self):
+	def all_flags(self):
 		flags=[
 			"zero",
 			"linear",
@@ -104,32 +104,90 @@ class Crop_Filter(object):
 		]
 		return flags
 
-class Kalman_Filter(object):
+class Smooth_Filter(object):
 	"""
-	Smooth the data with a Kalman filter
+	Smooth the trajectory data
 	"""
-	def __init__(self):
-		self.KalmanFilter = pykalman.KalmanFilter
+	def __init__(self,flag='kalman',kernel_size=3):
+		"""
+		:param flag: string, specifies the method for smooth filtering,
+				'kalman': kalman filter
+				'wiener': weiner filter
+				'median': median filter
+		:param kernel_size: int, kernal size for median filter or wiener filter
+		"""
+		self.flag = flag
+		self.kernel_size = kernel_size
+		if self.flag=='median':
+			self.filter = partial(self._median_filter,kernel_size=kernel_size)
+		elif self.flag=='wiener':
+			self.filter = partial(self._wiener_filter, kernel_size=kernel_size)
+		elif self.flag=='kalman':
+			self.filter = self._kalman_filter
+
+
+		if flag not in self.all_flags:
+			raise('invalid  flags. Only support:', self.all_flags)
+
+	def _median_filter(self, trajectory,kernel_size):
+		"""
+		smooth the  time series data with median filter
+		:param trajectory: numpy-array
+		:param kernel_size: int,  the size of the median filter window
+		:return: numpy-array, smoothed time-series data
+		"""
+		time_step, dim = trajectory.shape[:2]
+		filt_traj =trajectory.copy()
+		for ii in range(dim):
+			filt_traj[:,ii] = signal.medfilt(trajectory[:,ii], kernel_size=kernel_size)
+			filt_traj[:, 0] = filt_traj[:, 1]
+			filt_traj[:, -1] = filt_traj[:, -2]
+		return filt_traj
+
+	def _wiener_filter(self,trajectory,kernel_size):
+		"""
+		smooth the  time series data with Wiener filter
+		:param trajectory: numpy-array
+		:param kernel_size: int,  the size of the Wiener filter window
+		:return: numpy-array, smoothed time-series data
+		"""
+		time_step, dim = trajectory.shape[:2]
+		filt_traj =trajectory.copy()
+		for ii in range(dim):
+			filt_traj[:,ii] = signal.wiener(trajectory[:,ii], mysize=kernel_size)
+			filt_traj[:, 0] = filt_traj[:, 1]
+			filt_traj[:, -1] = filt_traj[:, -2]
+		return filt_traj
+
+	def _kalman_filter(self,trajectory):
+		"""
+		smooth the  time series data with Kalman filter
+		:param trajectory: numpy-array
+		:return: numpy-array, smoothed time-series data
+		"""
+		time_step, dim = trajectory.shape[:2]
+
+		self.kf = pykalman.KalmanFilter(n_dim_obs=dim, n_dim_state=dim,initial_state_mean=trajectory[0])
+		state_mean, state_covariance = self.kf.filter(trajectory)
+		filt_traj = state_mean
+		return filt_traj
+
 
 	def smooth_trajectory(self,trajectory):
 		"""
-		smooth the  time series data with Kalman filter
+		smooth the  time series data
 		:param trajectory: numpy array, shape of (time_step,coordinate_dim)
 		:return: numpy-array, smoothed time series data, same shape as input series
 		"""
 		trajectory=np.array(trajectory)
 		if len(trajectory.shape)<2:
 			trajectory=trajectory.reshape(trajectory.shape[0],1)
-		time_step, dim = trajectory.shape[:2]
-		self.kf = self.KalmanFilter(n_dim_obs=dim, n_dim_state=dim,initial_state_mean=trajectory[0])
-
-		state_mean, state_covariance = self.kf.filter(trajectory)
-		smoothed=state_mean
+		smoothed=self.filter(trajectory)
 		return smoothed
 
 	def smooth_multi_trajectories(self,trajectories):
 		"""
-		smooth the  multi-joint-trajectories  data with Kalman filter
+		smooth the  multi-joint-trajectories  data
 		:param trajectories: numpy array, shape of (time_step,joint_num, coordinate_dim)
 		:return: numpy-array, smoothed trajectories, same shape as input trajectories
 		"""
@@ -141,6 +199,15 @@ class Kalman_Filter(object):
 		for ii in range(joint_num):
 			multi_joint_smoothed[:,ii] = self.smooth_trajectory(trajectories[:,ii])
 		return multi_joint_smoothed
+
+	@property
+	def all_flags(self):
+		flags=[
+			"median",
+			"wiener",
+			"kalman",
+		]
+		return flags
 
 class Motion_Sampler(object):
 	"""

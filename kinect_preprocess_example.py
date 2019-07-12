@@ -6,7 +6,7 @@ from multiprocessing import Pool
 from functools import partial
 
 from kinect_smoothing import HoleFilling_Filter, Denoising_Filter
-from kinect_smoothing import Crop_Filter, Kalman_Filter, Motion_Sampler
+from kinect_smoothing import Crop_Filter, Smooth_Filter, Motion_Sampler
 from kinect_smoothing import Coordinate_Calculator
 from kinect_smoothing import Kinect_Openpose_Pipeline
 
@@ -28,7 +28,7 @@ def standard_pipeline(image_frame,pose_frame):
 	raw_pose = calcutator.get_depth_coordinate(image_frame, pose_frame)
 	raw_pose = pose_filter.smooth_multi_trajectories(raw_pose)
 
-	smooth_filter = Kalman_Filter()
+	smooth_filter = Smooth_Filter()
 	raw_pose = smooth_filter.smooth_multi_trajectories(raw_pose)
 	real_pose = calcutator.convert_real_coordinate(raw_pose)
 
