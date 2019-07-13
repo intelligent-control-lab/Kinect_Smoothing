@@ -104,6 +104,110 @@ class Crop_Filter(object):
 		]
 		return flags
 
+class GradientCrop_Filter(object):
+	"""
+	The x, y coordinates of the trajectory were captured by some keypoint detection algorithms (e.g. Openpose).
+	Sometimes objects will be placed in the background and the depth coordinates may register as invalid values.
+	The GradientCrop_Filter crops the large gradient values maybe miss-classsified as background
+	"""
+	def __init__(self,flag='pchip',max_valid_gradient=50):
+		"""
+		:param flag:  string, specifies the method for crop filtering on the data,
+				such as "zero","linear","slinear","quadratic","cubic","previous","next","nearest".
+				'pchip': PCHIP 1-d monotonic cubic interpolation, refer to 'Monotone Piecewise Cubic Interpolation'
+				'akima': Akima 1D Interpolator, refer to 'A new method of interpolation and smooth curve fitting based on local procedures'
+		:param max_valid_gradient: float, crop-filter the gradient > max_valid_gradient
+		"""
+		self.flag=flag
+		self.max_valid_gradient = max_valid_gradient
+
+		if flag in ["zero","linear","slinear","quadratic","cubic","previous","next","nearest"]:
+			self.filter = partial(interpolate.interp1d,kind=flag)
+		elif flag=='pchip' or flag=='PchipInterpolator':
+			self.filter = interpolate.PchipInterpolator
+		elif flag=='akima' or flag=='Akima1DInterpolator':
+			self.filter = interpolate.Akima1DInterpolator
+
+		if flag not in self.all_flags:
+			raise('invalid  flags. Only support:', self.all_flags)
+
+	def smooth_trajectory_1d(self,trajectory_1d):
+		"""
+		smooth the 1-d trajectory or time-series data
+		:param trajectory_1d: numpy array, shape of (time_step,)
+		:return: numpy-array, smoothed trajectory, same shape as input trajectory_1d
+		"""
+
+		valid_ind = []
+		valid_value = trajectory_1d[0]
+		for ii, val in enumerate(trajectory_1d):
+			if abs(valid_value - val) < 50:
+				valid_value = val
+				valid_ind.append(ii)
+
+		if len(valid_ind)==len(trajectory_1d):
+			return trajectory_1d
+
+		t = np.arange(len(trajectory_1d))
+		interp_fn = self.filter(valid_ind,trajectory_1d[valid_ind])
+		left_ind,right_ind = valid_ind[0],valid_ind[-1]
+		smoothed_ind = t[left_ind:right_ind+1]
+		smoothed_1d = interp_fn(smoothed_ind) # only interpolate middle are,
+		if left_ind>0:
+			left_val = trajectory_1d[left_ind]*np.ones(left_ind)
+			smoothed_1d = np.concatenate([left_val,smoothed_1d])
+		if right_ind<len(trajectory_1d)-1:
+			right_val = trajectory_1d[right_ind]*np.ones(len(trajectory_1d)-1-right_ind)
+			smoothed_1d = np.concatenate([smoothed_1d,right_val])
+		return smoothed_1d
+
+	def smooth_trajectory(self,trajectory):
+		"""
+		smooth the  trajectory time-series data
+		:param trajectory: numpy array, shape of (time_step,coordinate_dim)
+		:return: numpy-array, smoothed trajectory, same shape as input trajectory
+		"""
+		trajectory=np.array(trajectory)
+		if len(trajectory.shape)<2:
+			trajectory=np.expand_dims(trajectory, axis=1)
+		time_step, dim = trajectory.shape[:2]
+		smoothed = trajectory.copy()
+		for ii in range(dim):
+			smoothed[:,ii] = self.smooth_trajectory_1d(trajectory[:,ii])
+		return smoothed
+
+	def smooth_multi_trajectories(self,trajectories):
+		"""
+		smooth the multi-joint trajectories
+		:param trajectories: numpy array, shape of (time_step,joint_num, coordinate_dim)
+		:return: numpy-array, smoothed trajectories, same shape as input trajectories
+		"""
+		trajectories=np.array(trajectories)
+		if len(trajectories.shape)<3:
+			trajectories=np.expand_dims(trajectories, axis=1)
+		joint_num = trajectories.shape[1]
+		multi_joint_smoothed = trajectories.copy()
+		for ii in range(joint_num):
+			multi_joint_smoothed[:,ii] = self.smooth_trajectory(trajectories[:,ii])
+		return multi_joint_smoothed
+
+	@property
+	def all_flags(self):
+		flags=[
+			"zero",
+			"linear",
+			"slinear",
+			"quadratic",
+			"cubic",
+			"previous",
+			"next",
+			"nearest",
+			'pchip',#PchipInterpolator
+			'PchipInterpolator',
+			'akima',#Akima1DInterpolator
+		]
+		return flags
+
 class Smooth_Filter(object):
 	"""
 	Smooth the trajectory data
@@ -292,8 +396,14 @@ class Motion_Sampler(object):
 		"""
 		if len(trajectories.shape)<3:
 			trajectories=np.expand_dims(trajectories, axis=1)
-		joint_num = trajectories.shape[1]
-		multi_interpolated = trajectories.copy()
+
+		L,joint_num, feat_dim = trajectories.shape[:3]
+		ratio = self.interpolate_ratio[0]
+		for rat, thr in zip (self.interpolate_ratio[1:],self.interpolate_threshold):
+			if L>thr:
+				ratio=rat
+		new_t = [ii/ratio for ii in list(range(ratio*(L-1)+1))]
+		multi_interpolated=np.zeros((len(new_t),joint_num,feat_dim))
 		for ii in range(joint_num):
 			multi_interpolated[:, ii] = self.interpolate_trajectory(trajectories[:, ii])
 		return multi_interpolated
