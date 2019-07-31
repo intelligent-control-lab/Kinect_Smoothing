@@ -141,8 +141,10 @@ class GradientCrop_Filter(object):
 		valid_ind = []
 		valid_value = trajectory_1d[0]
 		for ii, val in enumerate(trajectory_1d):
-			if abs(valid_value - val) < 50:
+			if abs(valid_value - val) < self.max_valid_gradient :
 				valid_value = val
+				valid_ind.append(ii)
+			elif ii ==len(trajectory_1d)-1:
 				valid_ind.append(ii)
 
 		if len(valid_ind)==len(trajectory_1d):
@@ -212,22 +214,33 @@ class Smooth_Filter(object):
 	"""
 	Smooth the trajectory data
 	"""
-	def __init__(self,flag='kalman',kernel_size=3):
+	def __init__(self,flag='kalman',kernel_size=3, decay_rate=0.6):
 		"""
 		:param flag: string, specifies the method for smooth filtering,
 				'kalman': kalman filter
 				'wiener': weiner filter
 				'median': median filter
-		:param kernel_size: int, kernal size for median filter or wiener filter
+				'moving_average' or 'ma': moving average filter
+				'weighted_moving_average' or 'wma': weighted moving average filter
+				'exponential_moving_average' or 'ema': exponential moving average
+		:param kernel_size: int, kernel size for median filter or wiener filter or moving average filter
+		:param decay_rate: float, decay rate for exponential moving average or weighted moving average filter
 		"""
 		self.flag = flag
 		self.kernel_size = kernel_size
+		self.decay_rate = decay_rate
 		if self.flag=='median':
 			self.filter = partial(self._median_filter,kernel_size=kernel_size)
 		elif self.flag=='wiener':
 			self.filter = partial(self._wiener_filter, kernel_size=kernel_size)
 		elif self.flag=='kalman':
 			self.filter = self._kalman_filter
+		elif self.flag=='moving_average' or self.flag=='ma':
+			self.filter = partial(self._ma_filter, kernel_size=kernel_size)
+		elif self.flag=='exponential_moving_average' or self.flag=='ema':
+			self.filter = partial(self._ema_filter, decay_rate=decay_rate)
+		elif self.flag=='weighted_moving_average' or self.flag=='wma':
+			self.filter = partial(self._wma_filter, decay_rate=decay_rate)
 
 
 		if flag not in self.all_flags:
@@ -276,6 +289,59 @@ class Smooth_Filter(object):
 		filt_traj = state_mean
 		return filt_traj
 
+	def _ma_filter(self,trajectory,kernel_size):
+		"""
+		smooth the  time series data with moving average
+		:param trajectory: numpy-array
+		:param kernel_size: int,  the size of the moving average filter window
+		:return: numpy-array, smoothed time-series data
+		"""
+		time_step, dim = trajectory.shape[:2]
+		filt_traj =trajectory.copy()
+		r = np.arange(1, kernel_size - 1, 2)
+		for ii in range(dim):
+			a = trajectory[:,ii]
+			out0 = np.convolve(a, np.ones(kernel_size, dtype=int), 'valid') / kernel_size
+			start = np.cumsum(a[:kernel_size - 1])[::2] / r
+			stop = (np.cumsum(a[:-kernel_size:-1])[::2] / r)[::-1]
+			filt_traj[:,ii] =  np.concatenate((start, out0, stop))
+		return filt_traj
+
+	def _ema_filter(self,trajectory,decay_rate):
+		"""
+		smooth the  time series data with exponential moving average
+		:param trajectory: numpy-array
+		:param decay_rate: float,  decay rate for exponential moving average
+		:return: numpy-array, smoothed time-series data
+		"""
+		time_step, dim = trajectory.shape[:2]
+		filt_traj =trajectory.copy()
+		for ii in range(dim):
+			a = trajectory[:,ii]
+			smoothed = [a[0]]
+			for val in a[1:]:
+				new_val = decay_rate * val + (1 - decay_rate) * smoothed[-1]
+				smoothed.append(new_val)
+			filt_traj[:, ii] = np.array(smoothed)
+		return filt_traj
+
+	def _wma_filter(self,trajectory,decay_rate):
+		"""
+		smooth the  time series data with weighted moving average
+		:param trajectory: numpy-array
+		:param decay_rate: float,  decay rate for weighted moving average
+		:return: numpy-array, smoothed time-series data
+		"""
+		time_step, dim = trajectory.shape[:2]
+		filt_traj =trajectory.copy()
+		for ii in range(dim):
+			a = trajectory[:,ii]
+			smoothed = [a[0]]
+			for jj in range(1,len(a)):
+				new_val = decay_rate * a[jj] + (1 - decay_rate) * a[jj-1]
+				smoothed.append(new_val)
+			filt_traj[:, ii] = np.array(smoothed)
+		return filt_traj
 
 	def smooth_trajectory(self,trajectory):
 		"""
@@ -310,6 +376,12 @@ class Smooth_Filter(object):
 			"median",
 			"wiener",
 			"kalman",
+			"moving_average",
+			"ma",
+			"exponential_moving_average",
+			"ema",
+			"weighted_moving_average",
+			"wma",
 		]
 		return flags
 
@@ -353,9 +425,11 @@ class Motion_Sampler(object):
 		if thresh is None:
 			thresh = self.motion_threshold
 		motion_data = [trajectory[0]]
+		left_valid_ind = int(2*len(trajectory)/5)
+		right_valid_ind = int(3*len(trajectory)/5)
 		for ii in range(1, len(trajectory)):
 			diff = np.sum(np.abs(trajectory[ii] - motion_data[-1]))
-			if diff >= thresh:
+			if diff >= thresh or (ii>=left_valid_ind and ii<=right_valid_ind):
 				motion_data.append(trajectory[ii])
 		if len(motion_data) < self.min_time_step and thresh<=0:
 			motion_data = self.motion_detection(trajectory, thresh // 2)
@@ -399,7 +473,7 @@ class Motion_Sampler(object):
 
 		L,joint_num, feat_dim = trajectories.shape[:3]
 		ratio = self.interpolate_ratio[0]
-		for rat, thr in zip (self.interpolate_ratio[1:],self.interpolate_threshold):
+		for rat, thr in zip(self.interpolate_ratio[1:],self.interpolate_threshold):
 			if L>thr:
 				ratio=rat
 		new_t = [ii/ratio for ii in list(range(ratio*(L-1)+1))]
