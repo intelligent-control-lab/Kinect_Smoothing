@@ -47,6 +47,8 @@ git clone https://github.com/intelligent-control-lab/Kinect_Smoothing.git
    * kalman: smooth the signal with Kalman filter, refer to [Fundamentals of Kalman Filtering](http://iaac.technion.ac.il/workshops/2010/KFhandouts/LectKF1.pdf)
    * wiener: smooth the signal with Wiener filter
    * median:  smooth the signal with median filter
+   * moving_average:  smooth the signal with moving average filter
+   * exponential_moving_average:  smooth the signal with exponential moving average filter
 
 * Motion Sampler:
 
