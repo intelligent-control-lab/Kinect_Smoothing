@@ -9,7 +9,25 @@ pip install -r requirements.txt
 ```
 * Running
 
-  see [example.ipynb](example.ipynb) and [kinect_preprocess_example.py](kinect_preprocess_example.py).
+  Please check [example.ipynb](example.ipynb) and [kinect_preprocess_example.py](kinect_preprocess_example.py).
+  
+ * Data preparation     
+ We saved  many frames of depth images in `data/sample_img.pkl` and saved corresponding frames of position coordinates in `data/sample_pose.pkl `  
+`e.g.  sample_img = [ [ image_1 ] ,  [ image_2 ], ... , [ image_t ] ].` each `image_i` has a shape of `(width, height)`.  
+In case if anyone wants to use it for multiple files, then the code below should work.
+```
+import joblib 
+import cv2
+import glob 
+
+X_data = []
+file_lists = glob.glob("/*.bmp")  # image path
+for files in sorted(file_lists):
+    if files.endswith(".bmp"):
+        image = cv2.imread(files)
+        X_data.append(image)
+        joblib.dump(X_data, 'image_frames.pkl')
+```
 
 ## Features
 
@@ -39,6 +57,14 @@ pip install -r requirements.txt
   * conventional interpolation methods: such as "zero","linear","slinear","quadratic","cubic","previous","next","nearest".
   * "pchip": PCHIP 1-d monotonic cubic interpolation, refer to [Monotone Piecewise Cubic Interpolation](https://epubs.siam.org/doi/pdf/10.1137/0717021?casa_token=IcEKTOT2mfgAAAAA:Ymwhtl0E5xdPakjEyhIuTAS5R5MQKUu3JrdLeo1Lu0qU8IMtDoX99RGwU2Ll4saxj68nVpLaVLQ)
   * "akima": Akima 1D Interpolator, refer to [A new method of interpolation and smooth curve fitting based on local procedures](http://200.17.213.49/lib/exe/fetch.php/wiki:internas:biblioteca:akima.pdf)
+  
+  * Gradient Crop Filter:  
+  
+    Similar to Crop-Filter, the GradientCrop_Filter crops the large gradient values between near pixels maybe miss-labeled as background. The methods for invalid value replacement are as follows:
+  * conventional interpolation methods: such as "zero","linear","slinear","quadratic","cubic","previous","next","nearest".
+  * "pchip": PCHIP 1-d monotonic cubic interpolation.
+  * "akima": Akima 1D Interpolator.
+  
 
 * Smooth Filter:
 
