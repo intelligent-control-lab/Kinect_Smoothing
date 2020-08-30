@@ -58,7 +58,7 @@ for files in sorted(file_lists):
   * "pchip": PCHIP 1-d monotonic cubic interpolation, refer to [Monotone Piecewise Cubic Interpolation](https://epubs.siam.org/doi/pdf/10.1137/0717021?casa_token=IcEKTOT2mfgAAAAA:Ymwhtl0E5xdPakjEyhIuTAS5R5MQKUu3JrdLeo1Lu0qU8IMtDoX99RGwU2Ll4saxj68nVpLaVLQ)
   * "akima": Akima 1D Interpolator, refer to [A new method of interpolation and smooth curve fitting based on local procedures](http://200.17.213.49/lib/exe/fetch.php/wiki:internas:biblioteca:akima.pdf)
   
-  * Gradient Crop Filter:  
+* Gradient Crop Filter:  
   
     Similar to Crop-Filter, the GradientCrop_Filter crops the large gradient values between near pixels maybe miss-labeled as background. The methods for invalid value replacement are as follows:
   * conventional interpolation methods: such as "zero","linear","slinear","quadratic","cubic","previous","next","nearest".
